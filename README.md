@@ -59,22 +59,50 @@ Sebelumnya, **Biaya Jemput** selalu Rp 0 karena jarak dihitung dari 0 km.
 
 ## 🚀 Setup
 
-### 1. Install dependencies
+### Prerequisites
 ```bash
-npm install
+Node.js >= 14
+npm atau yarn
 ```
 
-### 2. Setup Mapbox (opsional, untuk akurasi alamat lebih baik)
+### Quick Start
+
+```bash
+# 1. Install dependencies
+npm install
+
+# 2. Copy environment template
+copy .env.example .env
+
+# 3. Setup Firebase & Google Maps (lihat section di bawah)
+
+# 4. Run development
+npm start        # → http://localhost:3000
+```
+
+### Environment Variables
+
+Buat file `.env` dari template:
+
+```env
+REACT_APP_FIREBASE_API_KEY=your_api_key
+REACT_APP_FIREBASE_AUTH_DOMAIN=your_domain
+REACT_APP_FIREBASE_PROJECT_ID=your_project_id
+REACT_APP_FIREBASE_STORAGE_BUCKET=your_bucket
+REACT_APP_FIREBASE_MESSAGING_SENDER_ID=your_sender_id
+REACT_APP_FIREBASE_APP_ID=your_app_id
+
+REACT_APP_GOOGLE_MAPS_API_KEY=your_google_maps_key
+REACT_APP_MAPBOX_TOKEN=pk.your-token-here  # optional
+```
+
+### Setup Mapbox (Optional)
 
 Daftar gratis di [account.mapbox.com](https://account.mapbox.com/auth/signup/), buat token dengan scope `search:read`, lalu tambahkan ke `.env`:
 
-```env
-REACT_APP_MAPBOX_TOKEN=pk.your-token-here
-```
-
 > Tanpa token, app tetap jalan dengan OpenStreetMap sebagai fallback.
 
-### 3. Setup Firebase
+### Setup Firebase
 
 - Buat project di [Firebase Console](https://console.firebase.google.com)
 - Register Web App, copy config ke `src/firebaseConfig.js`
@@ -256,7 +284,35 @@ anjemkuy/
 
 ---
 
-## 🌐 Deploy ke Firebase Hosting
+## 🌐 Deployment
+
+### Option 1: Vercel (Recommended) ⭐
+
+**Paling mudah & gratis selamanya!**
+
+```bash
+# 1. Push ke GitHub
+git add .
+git commit -m "Ready for deployment"
+git push origin main
+
+# 2. Import ke Vercel
+# → vercel.com/new
+# → Connect GitHub repository
+# → Add environment variables
+# → Deploy!
+```
+
+📖 **Panduan lengkap**: Lihat [`VERCEL_DEPLOY.md`](./VERCEL_DEPLOY.md)
+
+**Fitur Vercel:**
+- ✅ Auto HTTPS (SSL certificate gratis)
+- ✅ Global CDN untuk performa maksimal
+- ✅ Continuous deployment (auto-deploy on push)
+- ✅ Preview deployments untuk setiap branch
+- ✅ 100GB bandwidth gratis/bulan
+
+### Option 2: Firebase Hosting
 
 ```bash
 npm install -g firebase-tools
@@ -311,6 +367,27 @@ firebase deploy --only hosting
 - Sistem booking dengan slot waktu
 - Auto-calculate distance via OSRM
 - Admin dashboard dengan statistik
+
+---
+
+## 📚 Documentation
+
+| Document | Description |
+|----------|-------------|
+| [`README.md`](./README.md) | Main documentation (you're here) |
+| [`VERCEL_DEPLOY.md`](./VERCEL_DEPLOY.md) | Complete Vercel deployment guide |
+| [`QUICK_START_VERCEL.md`](./QUICK_START_VERCEL.md) | 5-minute quick start for Vercel |
+| [`DEPLOYMENT_CHECKLIST.md`](./DEPLOYMENT_CHECKLIST.md) | Pre/post deployment checklist |
+| [`MAPBOX_SETUP.md`](./MAPBOX_SETUP.md) | Mapbox configuration guide |
+
+---
+
+## 🔗 Useful Links
+
+- [Vercel Documentation](https://vercel.com/docs)
+- [Firebase Console](https://console.firebase.google.com)
+- [Google Cloud Console](https://console.cloud.google.com)
+- [Mapbox Account](https://account.mapbox.com)
 
 ---
 
