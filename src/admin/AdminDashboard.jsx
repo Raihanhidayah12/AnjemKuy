@@ -825,12 +825,62 @@ function BookingHistory({ slots }) {
 function Settings() {
   const [waNumber, setWaNumber] = useState(() => localStorage.getItem("admin_wa_number") || "6282310699436");
   const [adminPin, setAdminPin] = useState(() => localStorage.getItem("admin_pin") || "1234");
+  const [driverLocation, setDriverLocation] = useState(() => {
+    const stored = localStorage.getItem("admin_driver_location");
+    return stored ? JSON.parse(stored) : null;
+  });
+  const [gettingLocation, setGettingLocation] = useState(false);
   const [saved, setSaved] = useState(false);
+
+  const handleGetDriverLocation = () => {
+    if (!navigator.geolocation) {
+      alert("Browser Anda tidak mendukung fitur lokasi GPS.");
+      return;
+    }
+    setGettingLocation(true);
+    navigator.geolocation.getCurrentPosition(
+      async (position) => {
+        const lat = position.coords.latitude;
+        const lng = position.coords.longitude;
+        try {
+          const res = await fetch(`https://nominatim.openstreetmap.org/reverse?lat=${lat}&lon=${lng}&format=json&accept-language=id`);
+          const data = await res.json();
+          const addressName = data.name || data.address?.road || "Lokasi Driver";
+          const suburb = data.address?.suburb || data.address?.village || "";
+          const city = data.address?.city || data.address?.town || data.address?.county || "";
+          
+          let fullAddr = addressName;
+          if (suburb) fullAddr += `, ${suburb}`;
+          if (city) fullAddr += `, ${city}`;
+          
+          const locationData = {
+            lat,
+            lng,
+            name: addressName,
+            address: fullAddr
+          };
+          setDriverLocation(locationData);
+        } catch (e) {
+          alert("Gagal menerjemahkan koordinat ke alamat.");
+        }
+        setGettingLocation(false);
+      },
+      (error) => {
+        setGettingLocation(false);
+        if (error.code === 1) alert("Mohon izinkan akses lokasi GPS di browser Anda.");
+        else alert("Gagal mendapatkan titik koordinat. Pastikan GPS aktif.");
+      },
+      { enableHighAccuracy: true, timeout: 10000, maximumAge: 0 }
+    );
+  };
 
   const handleSave = () => {
     // Simpan ke localStorage atau Firestore
     localStorage.setItem("admin_wa_number", waNumber);
     localStorage.setItem("admin_pin", adminPin);
+    if (driverLocation) {
+      localStorage.setItem("admin_driver_location", JSON.stringify(driverLocation));
+    }
     setSaved(true);
     setTimeout(() => setSaved(false), 3000);
   };
@@ -876,6 +926,105 @@ function Settings() {
           />
           <p style={{ color: "#6c757d", fontSize: "0.75rem", marginTop: "0.4rem" }}>
             Ganti PIN untuk akses admin panel. Minimal 4 karakter.
+          </p>
+        </div>
+
+        <div style={{ marginBottom: "1.5rem" }}>
+          <label style={{ color: "#adb5bd", fontSize: "0.82rem", marginBottom: "0.5rem", display: "block" }}>
+            <i className="bi bi-geo-alt-fill" /> Lokasi Driver (untuk perhitungan jarak jemput)
+          </label>
+          
+          {driverLocation ? (
+            <div style={{ 
+              background: "rgba(74,222,128,0.08)", 
+              border: "1px solid rgba(74,222,128,0.3)", 
+              borderRadius: "10px", 
+              padding: "0.85rem 1rem",
+              marginBottom: "0.75rem"
+            }}>
+              <div style={{ display: "flex", alignItems: "flex-start", gap: "0.5rem", marginBottom: "0.5rem" }}>
+                <i className="bi bi-check-circle-fill" style={{ color: "#4ade80", fontSize: "1.1rem" }} />
+                <div style={{ flex: 1 }}>
+                  <div style={{ color: "#4ade80", fontWeight: 600, fontSize: "0.9rem" }}>
+                    Lokasi Tersimpan
+                  </div>
+                  <div style={{ color: "#adb5bd", fontSize: "0.8rem", marginTop: "0.25rem" }}>
+                    {driverLocation.address}
+                  </div>
+                  <div style={{ color: "#6c757d", fontSize: "0.7rem", marginTop: "0.25rem" }}>
+                    Koordinat: {driverLocation.lat.toFixed(6)}, {driverLocation.lng.toFixed(6)}
+                  </div>
+                </div>
+              </div>
+              <button
+                onClick={() => setDriverLocation(null)}
+                style={{
+                  background: "rgba(220,53,69,0.15)",
+                  border: "1px solid rgba(220,53,69,0.3)",
+                  color: "#dc3545",
+                  padding: "0.4rem 0.8rem",
+                  borderRadius: "8px",
+                  fontSize: "0.75rem",
+                  cursor: "pointer",
+                  fontWeight: 600,
+                  display: "flex",
+                  alignItems: "center",
+                  gap: "0.4rem",
+                }}
+              >
+                <i className="bi bi-trash3-fill" />
+                Hapus Lokasi
+              </button>
+            </div>
+          ) : (
+            <div style={{
+              background: "rgba(255,193,7,0.08)",
+              border: "1px solid rgba(255,193,7,0.3)",
+              borderRadius: "10px",
+              padding: "0.85rem 1rem",
+              marginBottom: "0.75rem",
+              color: "#ffc107",
+              fontSize: "0.82rem"
+            }}>
+              <i className="bi bi-exclamation-triangle-fill" /> Lokasi driver belum diatur. Biaya jemput akan dihitung dari 0 km.
+            </div>
+          )}
+
+          <button 
+            onClick={handleGetDriverLocation} 
+            disabled={gettingLocation}
+            style={{ 
+              background: gettingLocation ? "#3a3f47" : "rgba(16, 185, 129, 0.15)", 
+              border: `1px solid ${gettingLocation ? "#3a3f47" : "rgba(16, 185, 129, 0.3)"}`,
+              color: gettingLocation ? "#6c757d" : "#4ade80", 
+              padding: "0.65rem 1.25rem", 
+              borderRadius: "10px", 
+              fontSize: "0.88rem",
+              fontWeight: 700,
+              cursor: gettingLocation ? "wait" : "pointer", 
+              display: "flex", 
+              alignItems: "center", 
+              gap: "0.5rem",
+              width: "100%",
+              justifyContent: "center",
+              transition: "all 0.2s"
+            }}
+          >
+            {gettingLocation ? (
+              <>
+                <span className="spinner-border spinner-border-sm" style={{ width: "14px", height: "14px", borderWidth: "2px" }} />
+                Mendapatkan GPS...
+              </>
+            ) : (
+              <>
+                <i className="bi bi-crosshair" />
+                {driverLocation ? "Perbarui Lokasi GPS" : "Set Lokasi GPS Saya"}
+              </>
+            )}
+          </button>
+          
+          <p style={{ color: "#6c757d", fontSize: "0.75rem", marginTop: "0.4rem" }}>
+            Lokasi ini akan digunakan sebagai titik awal untuk menghitung "Biaya Jemput" ke customer.
           </p>
         </div>
 

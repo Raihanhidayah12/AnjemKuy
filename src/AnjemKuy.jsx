@@ -349,31 +349,59 @@ export default function AnjemKuy() {
   const [estimasiDurasi, setEstimasiDurasi] = useState(0);
   const [showMap, setShowMap] = useState(false);
 
-  const { calculateDistance, loading: calculatingDistance } = useDistanceMatrix();
+  const { calculateDistance, calculatePickupDistance, loading: calculatingDistance } = useDistanceMatrix();
 
   // ── Firestore slots ──
   const [bookedSlots, setBookedSlots] = useState([]);
   const [loadingSlots, setLoadingSlots] = useState(true);
+  const [driverLocation, setDriverLocation] = useState(null);
 
   const ALL_SLOTS = generateSlots();
+
+  // ── Load driver (admin) location from localStorage ──
+  useEffect(() => {
+    const stored = localStorage.getItem("admin_driver_location");
+    if (stored) {
+      try {
+        setDriverLocation(JSON.parse(stored));
+      } catch (e) {
+        console.error("Invalid driver location data");
+      }
+    }
+  }, []);
 
   // ── Auto-calculate distance when both locations selected ──
   useEffect(() => {
     const autoCalculate = async () => {
-      if (lokasiJemputData && lokasiTujuanData) {
-        // For simplicity, assume rider starts from pickup location
-        // In real app, you'd have rider's actual location
-        const result = await calculateDistance(lokasiJemputData, lokasiTujuanData);
+      if (lokasiJemputData && lokasiTujuanData && driverLocation) {
+        // Calculate pickup distance: driver → pickup location
+        const pickupResult = await calculatePickupDistance(driverLocation, lokasiJemputData);
         
-        if (result) {
-          setJarakJemput(result.jarakJemput);
-          setJarakTujuan(result.jarakTujuan);
-          setEstimasiDurasi(result.totalDurasi);
+        // Calculate destination distance: pickup → destination
+        const destResult = await calculateDistance(lokasiJemputData, lokasiTujuanData);
+        
+        if (pickupResult && destResult) {
+          setJarakJemput(pickupResult.jarakJemput);
+          setJarakTujuan(destResult.jarakTujuan);
+          setEstimasiDurasi(pickupResult.durasiJemput + destResult.totalDurasi);
+        } else if (destResult) {
+          // Fallback: if no driver location, set pickup to 0
+          setJarakJemput("0");
+          setJarakTujuan(destResult.jarakTujuan);
+          setEstimasiDurasi(destResult.totalDurasi);
+        }
+      } else if (lokasiJemputData && lokasiTujuanData) {
+        // No driver location set, calculate only destination distance
+        const destResult = await calculateDistance(lokasiJemputData, lokasiTujuanData);
+        if (destResult) {
+          setJarakJemput("0");
+          setJarakTujuan(destResult.jarakTujuan);
+          setEstimasiDurasi(destResult.totalDurasi);
         }
       }
     };
     autoCalculate();
-  }, [lokasiJemputData, lokasiTujuanData, calculateDistance]);
+  }, [lokasiJemputData, lokasiTujuanData, driverLocation, calculateDistance, calculatePickupDistance]);
 
   // ── Real-time Firestore listener ──
   useEffect(() => {
@@ -707,6 +735,51 @@ export default function AnjemKuy() {
                 <div style={{ color: "#6c757d", fontSize: "0.72rem", textTransform: "uppercase" }}>Estimasi</div>
                 <div style={{ color: "#ffc107", fontWeight: 700, fontSize: "1.05rem" }}>±{durasiEstimasi} mnt</div>
               </div>
+              {!driverLocation && (
+                <div style={{ gridColumn: "1/-1", fontSize: "0.75rem", color: "#ffc107", display: "flex", alignItems: "center", gap: "0.4rem", marginTop: "0.25rem" }}>
+                  <i className="bi bi-info-circle-fill" />
+                  Jarak jemput belum dihitung (lokasi driver belum diatur)
+                </div>
+              )}
+            </div>
+          )}
+
+          {!showMap && jJemput > 0 && jTujuan > 0 && !calculatingDistance && (
+            <div style={{ marginTop: "0.75rem", background: "linear-gradient(135deg,#1a2a0a,#1e2a10)", border: "1px solid #2d5016", borderRadius: "12px", padding: "0.85rem 1rem" }}>
+              <div style={{ display: "grid", gridTemplateColumns: "repeat(auto-fit,minmax(120px,1fr))", gap: "0.75rem", marginBottom: "0.75rem" }}>
+                <div>
+                  <div style={{ color: "#6c757d", fontSize: "0.72rem", textTransform: "uppercase" }}>Jarak Jemput</div>
+                  <div style={{ color: "#4ade80", fontWeight: 700, fontSize: "1.05rem" }}>{jJemput} km</div>
+                  <div style={{ color: "#6c757d", fontSize: "0.68rem", marginTop: "0.15rem" }}>
+                    <i className="bi bi-geo-fill" /> Dari driver ke Anda
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#6c757d", fontSize: "0.72rem", textTransform: "uppercase" }}>Jarak Tujuan</div>
+                  <div style={{ color: "#4ade80", fontWeight: 700, fontSize: "1.05rem" }}>{jTujuan} km</div>
+                  <div style={{ color: "#6c757d", fontSize: "0.68rem", marginTop: "0.15rem" }}>
+                    <i className="bi bi-pin-map-fill" /> Ke lokasi tujuan
+                  </div>
+                </div>
+                <div>
+                  <div style={{ color: "#6c757d", fontSize: "0.72rem", textTransform: "uppercase" }}>Estimasi Total</div>
+                  <div style={{ color: "#ffc107", fontWeight: 700, fontSize: "1.05rem" }}>±{durasiEstimasi} mnt</div>
+                </div>
+              </div>
+              <div style={{ 
+                background: "rgba(74,222,128,0.08)", 
+                border: "1px solid rgba(74,222,128,0.25)", 
+                borderRadius: "8px", 
+                padding: "0.6rem 0.75rem",
+                fontSize: "0.75rem",
+                color: "#4ade80",
+                display: "flex",
+                alignItems: "center",
+                gap: "0.5rem"
+              }}>
+                <i className="bi bi-check-circle-fill" />
+                Jarak dihitung otomatis dari GPS driver
+              </div>
             </div>
           )}
         </div>
@@ -793,11 +866,28 @@ export default function AnjemKuy() {
                 Rincian Harga
               </div>
               <div style={S.priceLine}>
-                <span>Biaya Jemput ({jJemput} km)</span>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span>Biaya Jemput ({jJemput} km)</span>
+                  {driverLocation && jJemput > 0 && (
+                    <span style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "0.15rem" }}>
+                      <i className="bi bi-geo-fill" /> Dari lokasi driver
+                    </span>
+                  )}
+                  {!driverLocation && jJemput === 0 && (
+                    <span style={{ fontSize: "0.7rem", color: "#ffc107", marginTop: "0.15rem" }}>
+                      <i className="bi bi-exclamation-triangle-fill" /> Lokasi driver belum diatur
+                    </span>
+                  )}
+                </div>
                 <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{formatRupiah(pickupFee)}</span>
               </div>
               <div style={S.priceLine}>
-                <span>Biaya Tujuan ({jTujuan} km)</span>
+                <div style={{ display: "flex", flexDirection: "column" }}>
+                  <span>Biaya Tujuan ({jTujuan} km)</span>
+                  <span style={{ fontSize: "0.7rem", color: "#6c757d", marginTop: "0.15rem" }}>
+                    <i className="bi bi-pin-map-fill" /> Dari lokasi jemput ke tujuan
+                  </span>
+                </div>
                 <span style={{ color: "#e0e0e0", fontWeight: 600 }}>{formatRupiah(destFee)}</span>
               </div>
               {durasiEstimasi > 0 && (

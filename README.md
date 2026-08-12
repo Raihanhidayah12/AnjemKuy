@@ -1,6 +1,6 @@
 # 🏍️ Anjem Kuy — Antar Jemput Malang
 
-Aplikasi web booking layanan antar-jemput motor (Yamaha Aerox 155cc) untuk pelajar di Malang.
+Aplikasi web booking layanan antar-jemput motor (Yamaha Aerox 155cc) untuk pelajar di Malang dengan **GPS Driver Location System**.
 
 ---
 
@@ -10,19 +10,50 @@ Aplikasi web booking layanan antar-jemput motor (Yamaha Aerox 155cc) untuk pelaj
 - Pencarian alamat akurat via **Mapbox + OpenStreetMap** (jemput & tujuan pakai sistem yang sama)
 - Tombol **"Lokasi Saya Saat Ini"** via GPS
 - Pilih lokasi lewat **peta interaktif** (klik atau geser marker)
-- Kalkulasi jarak & harga **otomatis**
+- Kalkulasi jarak & harga **otomatis dari GPS driver** ⭐ **NEW**
 - Slot waktu **otomatis terkunci/terbuka** sesuai status
 - Pembayaran **QRIS DANA** atau **Cash / Tunai**
 - Kirim pesanan langsung via **WhatsApp**
 
 ### Admin Dashboard
 - Statistik hari ini — pending / selesai / batal
+- **Set Lokasi Driver GPS** untuk perhitungan jarak jemput ⭐ **NEW**
 - **Auto-unlock slot** setelah durasi + 20 menit buffer habis
 - **Cancel booking** dengan catatan alasan
 - Filter riwayat: Semua · Hari Ini · Pending · Selesai · Dibatalkan
 - Kelola slot manual (kunci/hapus)
 - Ganti nomor WhatsApp & PIN admin
 - Sidebar responsif (collapse di mobile)
+
+---
+
+## 🆕 GPS Driver Location System
+
+### Cara Kerja
+Sebelumnya, **Biaya Jemput** selalu Rp 0 karena jarak dihitung dari 0 km.
+
+**Sekarang**, admin dapat:
+1. Login ke **Admin Dashboard**
+2. Masuk ke menu **Pengaturan**
+3. Klik **"Set Lokasi GPS Saya"**
+4. Izinkan akses GPS browser
+5. Sistem menyimpan koordinat driver
+
+### Perhitungan Jarak Baru
+
+```
+┌────────────────────────────────────────────┐
+│  📍 GPS Driver  →  📍 Lokasi Jemput        │
+│       (Biaya Jemput dihitung dari sini)    │
+│                                            │
+│  📍 Lokasi Jemput  →  🎯 Tujuan           │
+│       (Biaya Tujuan)                       │
+└────────────────────────────────────────────┘
+```
+
+**Tampilan di Form Customer:**
+- Jika lokasi driver **belum diset**: "Jarak jemput belum dihitung"
+- Jika lokasi driver **sudah diset**: Menampilkan jarak & biaya jemput otomatis
 
 ---
 
@@ -73,7 +104,15 @@ Edit `src/admin/AdminAuthContext.jsx`:
 const ADMIN_PIN = "1234"; // ganti PIN yang aman
 ```
 
-### 5. Jalankan
+### 5. Set Lokasi Driver (PENTING!)
+
+Setelah setup:
+1. Login ke `/admin/login`
+2. Buka menu **Pengaturan**
+3. Klik **"Set Lokasi GPS Saya"**
+4. Simpan pengaturan
+
+### 6. Jalankan
 ```bash
 npm start        # development → http://localhost:3000
 npm run build    # production build
@@ -83,7 +122,7 @@ npm run build    # production build
 
 ## 💰 Tarif
 
-### Biaya Jemput (rider → lokasi customer)
+### Biaya Jemput (driver → lokasi customer)
 | Jarak | Biaya |
 |---|---|
 | 0 – 1,5 km | Gratis |
@@ -106,6 +145,8 @@ npm run build    # production build
 | > 15 km | Rp 28.000 + Rp 2.000/km |
 
 **Total = Biaya Jemput + Biaya Tujuan**
+
+⚠️ **Catatan**: Jika lokasi driver belum diset, Biaya Jemput akan 0 km (Rp 0)
 
 ---
 
@@ -143,6 +184,22 @@ npm run build    # production build
 }
 ```
 
+### LocalStorage (Admin Settings)
+
+```js
+// Disimpan di browser admin
+{
+  admin_wa_number: "628xxxxxxxxxx",
+  admin_pin: "1234",
+  admin_driver_location: {
+    lat: -7.9666,
+    lng: 112.6326,
+    name: "Jl. Veteran",
+    address: "Jl. Veteran No. 10, Klojen, Malang"
+  }
+}
+```
+
 ---
 
 ## 🎨 Tech Stack
@@ -153,6 +210,7 @@ npm run build    # production build
 | UI | Bootstrap 5 + Bootstrap Icons |
 | Database | Firebase Firestore |
 | Maps | Mapbox Search Box API + Leaflet + OSM + OSRM |
+| GPS | Geolocation API + Nominatim Reverse Geocoding |
 | Styling | Inline styles (dark theme) |
 | Integrasi | WhatsApp Web API |
 
@@ -169,13 +227,13 @@ anjemkuy/
 │   ├── admin/
 │   │   ├── AdminAuthContext.jsx
 │   │   ├── AdminLogin.jsx
-│   │   └── AdminDashboard.jsx
+│   │   └── AdminDashboard.jsx      # ⭐ GPS Driver Location Settings
 │   ├── components/
 │   │   ├── PlacesAutocomplete.jsx  # Mapbox + OSM hybrid
 │   │   └── MapPicker.jsx           # Peta interaktif + routing
 │   ├── hooks/
-│   │   └── useDistanceMatrix.js
-│   ├── AnjemKuy.jsx
+│   │   └── useDistanceMatrix.js    # ⭐ calculatePickupDistance added
+│   ├── AnjemKuy.jsx                # ⭐ Auto-calc from driver GPS
 │   ├── App.js
 │   ├── firebaseConfig.js
 │   └── index.js
@@ -191,6 +249,7 @@ anjemkuy/
 
 - [ ] Ganti PIN admin dari default `1234`
 - [ ] Update nomor WhatsApp di settings
+- [ ] **Set lokasi driver GPS di Admin Settings** ⭐
 - [ ] Batasi Firestore Rules (require auth untuk write)
 - [ ] Tambahkan domain restriction di Mapbox token
 - [ ] Enable HTTPS di hosting
@@ -211,6 +270,12 @@ firebase deploy --only hosting
 
 ## 🐛 Troubleshooting
 
+**GPS tidak terdeteksi**
+→ Pastikan **izinkan lokasi** di browser, gunakan **HTTPS** atau localhost, cek GPS perangkat
+
+**Jarak jemput tetap 0 km**
+→ Admin belum set GPS di **Pengaturan**, customer harus reload setelah admin set GPS
+
 **Autocomplete tidak muncul**
 → Cek koneksi internet, minimal 3 karakter, verifikasi Mapbox token di `.env`
 
@@ -225,6 +290,27 @@ firebase deploy --only hosting
 
 **Admin PIN ditolak**
 → Clear cache browser, cek `sessionStorage` di DevTools
+
+---
+
+## 🔄 Changelog
+
+### v2.0.0 (2026-08-13) — GPS Driver Location
+✨ **New Features:**
+- Admin dapat set lokasi GPS di Settings
+- Biaya Jemput dihitung otomatis dari GPS driver ke customer
+- Visual feedback untuk status GPS driver
+- Info transparan di rincian harga customer
+
+🔧 **Technical:**
+- Added `calculatePickupDistance` in `useDistanceMatrix.js`
+- LocalStorage for `admin_driver_location`
+- Enhanced price breakdown UI
+
+### v1.0.0 — Initial Release
+- Sistem booking dengan slot waktu
+- Auto-calculate distance via OSRM
+- Admin dashboard dengan statistik
 
 ---
 
